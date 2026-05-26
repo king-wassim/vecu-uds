@@ -1,0 +1,37 @@
+# Run the full stack: vECU + Python diag client, both sharing the host's
+# vcan0 interface (kernel modules vcan + can-isotp must be loaded on the host).
+#
+# Quick start (Linux host):
+#     sudo modprobe vcan can-isotp
+#     sudo ip link add dev vcan0 type vcan && sudo ip link set up vcan0
+#     docker compose up --build vecu
+#     docker compose run --rm diag read-vin
+#
+# Why --network host: SocketCAN is a host-side concept. There is no
+# "container CAN interface" without a virtual bridge; the simplest and
+# most realistic option is to let containers share the host's network
+# namespace and see vcan0 directly.
+
+services:
+  vecu:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.vecu
+    image: vecu-uds:latest
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    command: ["vcan0"]
+    stdin_open: true
+    tty: true
+
+  diag:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.diag
+    image: vecu-uds-diag:latest
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    stdin_open: true
+    tty: true

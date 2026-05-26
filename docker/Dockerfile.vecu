@@ -1,0 +1,30 @@
+# --- build stage -----------------------------------------------------------
+FROM ubuntu:22.04 AS build
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential cmake ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+COPY CMakeLists.txt ./
+COPY include/ ./include/
+COPY src/     ./src/
+COPY tests/   ./tests/
+
+RUN cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+ && cmake --build build -j
+
+# --- runtime stage ---------------------------------------------------------
+FROM ubuntu:22.04
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    can-utils iproute2 kmod \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /src/build/src/vecu_uds /usr/local/bin/vecu_uds
+COPY scripts/setup_vcan.sh /usr/local/bin/setup_vcan.sh
+RUN chmod +x /usr/local/bin/setup_vcan.sh
+
+# Default to vcan0 (created on the host before running).
+ENTRYPOINT ["/usr/local/bin/vecu_uds"]
+CMD ["vcan0"]
