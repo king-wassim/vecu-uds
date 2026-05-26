@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-ctest:
+    name: Build (CMake) + unit tests (ctest)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake pkg-config
+
+      - name: Configure (Debug)
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Run ctest
+        run: ctest --test-dir build --output-on-failure
+
+  pytest-integration:
+    name: Integration tests (pytest over vcan0)
+    runs-on: ubuntu-22.04
+    needs: build-and-ctest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system deps (build + CAN userspace)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake pkg-config \
+                                   can-utils iproute2 kmod python3-pip python3-venv
+
+      - name: Load CAN kernel modules
+        id: canmods
+        continue-on-error: true
+        run: |
+          sudo modprobe vcan
+          sudo modprobe can-isotp
+          lsmod | grep -E 'can|vcan'
+
+      - name: Skip integration tests if can-isotp unavailable
+        if: steps.canmods.outcome != 'success'
+        run: |
+          echo "::warning::Kernel can-isotp not available on this runner — skipping pytest."
+          exit 0
+
+      - name: Bring up vcan0
+        if: steps.canmods.outcome == 'success'
+        run: |
+          sudo ip link add dev vcan0 type vcan
+          sudo ip link set up vcan0
+          ip link show vcan0
+
+      - name: Build ECU
+        if: steps.canmods.outcome == 'success'
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build -j
+
+      - name: Set up Python venv + install client deps
+        if: steps.canmods.outcome == 'success'
+        run: |
+          cd client
+          python3 -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r requirements.txt pytest
+
+      - name: Run pytest integration suite
+        if: steps.canmods.outcome == 'success'
+        run: |
+          cd client
+          .venv/bin/pytest tests/ -v

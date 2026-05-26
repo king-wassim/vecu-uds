@@ -1,5 +1,6 @@
 # vecu-uds — Virtual ECU with UDS (ISO 14229) over ISO-TP
 
+![CI](https://github.com/king-wassim/vecu-uds/actions/workflows/ci.yml/badge.svg)
 ![status](https://img.shields.io/badge/status-v1.0-brightgreen)
 ![language](https://img.shields.io/badge/language-C11-blue)
 ![platform](https://img.shields.io/badge/platform-Linux%20%2B%20SocketCAN-lightgrey)
