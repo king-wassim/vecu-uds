@@ -14,7 +14,15 @@ def expect_nrc(call, expected_code):
 
 
 def test_unknown_did_returns_nrc_31(clean_state):
-    expect_nrc(lambda: clean_state.read_data_by_identifier(0xABCD), 0x31)
+    # udsoncan refuses to even send a read for a DID not in the codec config,
+    # so we forge the request by hand and parse the negative response.
+    clean_state.conn.empty_rxqueue()
+    clean_state.conn.send(bytes([0x22, 0xAB, 0xCD]))
+    resp = clean_state.conn.wait_frame(timeout=2.0, exception=True)
+    # Expected negative response: 0x7F 0x22 0x31
+    assert len(resp) == 3, f"unexpected response: {resp.hex()}"
+    assert resp[0] == 0x7F and resp[1] == 0x22, f"not a NegResp: {resp.hex()}"
+    assert resp[2] == 0x31, f"expected NRC 0x31, got 0x{resp[2]:02X}"
 
 
 def test_write_did_without_security_returns_nrc_33(clean_state):

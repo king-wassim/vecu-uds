@@ -4,6 +4,8 @@ import time
 import pytest
 from udsoncan.services import DiagnosticSessionControl
 
+from diag_tool import read_owner_raw
+
 
 def test_tester_present_ok(clean_state):
     clean_state.tester_present()
@@ -58,8 +60,8 @@ def test_write_did_after_unlock(clean_state):
     clean_state.change_session(DiagnosticSessionControl.Session.extendedDiagnosticSession)
     clean_state.unlock_security_access(1)
     clean_state.write_data_by_identifier(0xF200, "WASSIM")
-    r = clean_state.read_data_by_identifier(0xF200)
-    assert r.service_data.values[0xF200] == "WASSIM"
+    # 0xF200 is variable-length — bypass udsoncan codec.
+    assert read_owner_raw(clean_state) == "WASSIM"
 
 
 def test_round_trip_write_then_read_did(clean_state):
@@ -67,5 +69,4 @@ def test_round_trip_write_then_read_did(clean_state):
     clean_state.unlock_security_access(1)
     for name in ["A", "AB", "OWNER-XYZ-1234567890"]:
         clean_state.write_data_by_identifier(0xF200, name)
-        r = clean_state.read_data_by_identifier(0xF200)
-        assert r.service_data.values[0xF200] == name
+        assert read_owner_raw(clean_state) == name
