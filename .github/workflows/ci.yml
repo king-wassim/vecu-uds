@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+# Explicit minimum permissions so the workflow runs even if the repo
+# default is "no permissions". `contents: read` is what actions/checkout
+# needs to clone the repo via the auto-issued GITHUB_TOKEN.
+permissions:
+  contents: read
+
 jobs:
   build-and-ctest:
     name: Build (CMake) + unit tests (ctest)
